@@ -38,33 +38,6 @@ npm run dev
 
 The API health endpoint is `/health`. Local Node mode defaults to `http://localhost:4000`; Wrangler prints its local URL (usually `http://localhost:8787`).
 
-## Cloudflare deployment
-
-### 1. Push this project to GitHub
-
-Commit the project including `wrangler.jsonc`. Do not commit `.env` or `.dev.vars`.
-
-### 2. Configure secrets
-
-From the project root, authenticate Wrangler and add the three required secrets:
-
-```bash
-npx wrangler login
-npx wrangler secret put MONGODB_URI
-npx wrangler secret put ACCESS_TOKEN_SECRET
-npx wrangler secret put REFRESH_TOKEN_SECRET
-```
-
-Paste the full MongoDB Atlas URI when prompted. Include your database name after `.net/`, for example `...mongodb.net/witch_woofie?retryWrites=true&w=majority`. Generate two different random secrets of at least 32 characters. Do not put secrets in `wrangler.jsonc` or GitHub.
-
-### 3. Deploy
-
-```bash
-npm run deploy
-```
-
-Wrangler deploys the Worker and prints its `workers.dev` URL, for example `https://witch-woofie-api.<your-account>.workers.dev`. Test `https://...workers.dev/health`.
-
 ### 4. GitHub automatic deployment (optional)
 
 You can connect the repository through the Cloudflare Workers Builds dashboard. Set the build/deploy command to `npx wrangler deploy`; no separate frontend build is required. Ensure the repository root is this backend folder if it is in a monorepo. Configure the three secrets in the Worker settings rather than in GitHub source.
