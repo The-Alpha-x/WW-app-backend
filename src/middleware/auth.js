@@ -1,8 +1,9 @@
-import User from "../models/User.js";
+import { getUserModel } from "../models/User.js";
 import { verifyAccessToken } from "../utils/tokens.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
+  const User = getUserModel();
   const token = req.cookies.ww_access;
   if (!token) return res.status(401).json({ message: "Authentication required" });
 

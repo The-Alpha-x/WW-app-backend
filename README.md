@@ -1,37 +1,95 @@
-# Witch Woofie API starter
+# Witch Woofie API — Cloudflare Workers edition
 
-A starter Express API for a private two-person shared app. Includes MongoDB/Mongoose, email/password auth, short-lived JWT access tokens, rotating refresh sessions, HttpOnly cookies, one-time couple invitations, and couple-scoped task CRUD.
+Express 5 API for the Witch Woofie app. Uses MongoDB Atlas with Mongoose 9, JWT access/refresh tokens, HttpOnly cookies, couple invitations, and couple-scoped task CRUD.
 
-> This is a security-conscious starter, not a security audit or a finished production system. Review and test it before storing real personal data.
+## Runtime architecture
+
+- Cloudflare Workers runs the Express app through `httpServerHandler`.
+- MongoDB access uses a **new Mongoose connection per API request**, scoped with `AsyncLocalStorage`; it closes when the response finishes.
+- The per-request connection design avoids reusing TCP sockets across Worker invocations. The trade-off is connection setup latency on every API request. This direct-connection option is intended for low-traffic use and initial deployment/testing. If connection overhead becomes material, migrate database operations into a Durable Object to reuse the MongoDB connection.
+- Couple creation and invitation acceptance continue to use MongoDB transactions. Use MongoDB Atlas or another replica-set deployment that supports transactions.
 
 ## Requirements
 
-- Node.js 20+
-- MongoDB Atlas cluster (M0 is sufficient for initial development; check current Atlas limits)
-- Two independent strong secrets
+- Node.js 20.19+ for local development
+- npm
+- Cloudflare account
+- MongoDB Atlas cluster with network access configured for Cloudflare Workers
 
-## Local setup
+## Local development
+
+Install dependencies:
 
 ```bash
 npm install
-cp .env.example .env
-# Fill in .env
+```
+
+For local Node.js server mode, copy `.env.example` to `.env`, fill in the values, then run:
+
+```bash
+npm run dev:node
+```
+
+For Cloudflare's local Worker runtime, copy `.dev.vars.example` to `.dev.vars`, fill in the secrets, then run:
+
+```bash
 npm run dev
 ```
 
-API defaults to `http://localhost:4000`.
+The API health endpoint is `/health`. Local Node mode defaults to `http://localhost:4000`; Wrangler prints its local URL (usually `http://localhost:8787`).
 
-Generate secrets with:
+## Cloudflare deployment
+
+### 1. Push this project to GitHub
+
+Commit the project including `wrangler.jsonc`. Do not commit `.env` or `.dev.vars`.
+
+### 2. Configure secrets
+
+From the project root, authenticate Wrangler and add the three required secrets:
 
 ```bash
-openssl rand -base64 48
+npx wrangler login
+npx wrangler secret put MONGODB_URI
+npx wrangler secret put ACCESS_TOKEN_SECRET
+npx wrangler secret put REFRESH_TOKEN_SECRET
 ```
 
-Use different values for `ACCESS_TOKEN_SECRET` and `REFRESH_TOKEN_SECRET`.
+Paste the full MongoDB Atlas URI when prompted. Include your database name after `.net/`, for example `...mongodb.net/witch_woofie?retryWrites=true&w=majority`. Generate two different random secrets of at least 32 characters. Do not put secrets in `wrangler.jsonc` or GitHub.
 
-## Important MongoDB note
+### 3. Deploy
 
-Couple creation and invitation acceptance use MongoDB transactions. Use an Atlas deployment that supports transactions (Atlas replica-set deployments do). If you test against a standalone local MongoDB server, transactions may fail; use a replica set or Atlas.
+```bash
+npm run deploy
+```
+
+Wrangler deploys the Worker and prints its `workers.dev` URL, for example `https://witch-woofie-api.<your-account>.workers.dev`. Test `https://...workers.dev/health`.
+
+### 4. GitHub automatic deployment (optional)
+
+You can connect the repository through the Cloudflare Workers Builds dashboard. Set the build/deploy command to `npx wrangler deploy`; no separate frontend build is required. Ensure the repository root is this backend folder if it is in a monorepo. Configure the three secrets in the Worker settings rather than in GitHub source.
+
+## Worker environment variables
+
+`wrangler.jsonc` currently sets these non-secret production values:
+
+| Variable | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `FRONTEND_ORIGINS` | `http://localhost:3000,https://witch-woofie-app.pages.dev` |
+| `COOKIE_DOMAIN` | empty |
+| `COOKIE_SAME_SITE` | `none` |
+| `COOKIE_SECURE` | `true` |
+| `ACCESS_TOKEN_TTL` | `15m` |
+| `REFRESH_TOKEN_DAYS` | `30` |
+| `INVITATION_TTL_HOURS` | `48` |
+| `BCRYPT_ROUNDS` | `12` |
+
+Change `FRONTEND_ORIGINS` if your Pages hostname changes. Keep `COOKIE_DOMAIN` empty for `pages.dev` + `workers.dev`. Since these are different sites, cookies use `SameSite=None; Secure`; browser third-party-cookie restrictions may still prevent authentication cookies from working in some browsers. A custom domain arrangement under the same registrable domain is recommended for reliable cookie auth.
+
+## MongoDB Atlas network access
+
+Workers do not provide a single fixed outbound IP address by default. Atlas must accept connections from the Worker. For a quick test, Atlas Network Access may need `0.0.0.0/0`; this permits connections from any IP, so only do this with a strong database password, a dedicated least-privilege database user, and an appropriately secured cluster. Review Cloudflare's current static-egress options before production if you need IP allowlisting.
 
 ## API endpoints
 
@@ -45,12 +103,12 @@ All JSON request bodies use `Content-Type: application/json`. Browser requests m
 - `POST /api/auth/logout` — revokes current refresh session and clears cookies.
 - `GET /api/auth/me` — current user.
 
-### Couple
+### Couples
 
 All require authentication.
 
 - `POST /api/couples` — create your couple: `{ "name": "Our Little World" }`
-- `POST /api/couples/invitation` — create one-time invitation; returns a private invitation code. Only available while the couple has one member.
+- `POST /api/couples/invitation` — create one-time invitation.
 - `POST /api/couples/join` — second account joins: `{ "invitationCode": "..." }`
 - `GET /api/couples/me` — current couple and member profiles.
 
@@ -60,58 +118,24 @@ All require authentication and couple membership.
 
 - `GET /api/tasks`
 - `POST /api/tasks` — `{ "title", "description?", "assignedTo?", "dueDate?", "priority?" }`
-- `PATCH /api/tasks/:taskId` — partial task update; may include `status`.
+- `PATCH /api/tasks/:taskId`
 - `DELETE /api/tasks/:taskId`
 
-Every task query is scoped by `coupleId`; clients cannot submit or override `coupleId` or `createdBy`.
+## Important production limitations
 
-## Frontend fetch example
+1. **Direct MongoDB connection latency:** Each API request establishes and closes a connection. Cloudflare documents this direct approach for low-traffic use; Durable Objects are recommended for connection reuse and lower warm-request latency.
+2. **Rate limiting:** `express-rate-limit`'s default in-memory store is per Worker isolate, not a globally shared counter. Use a shared rate-limit store or Cloudflare rate limiting rules before relying on it for production abuse prevention.
+3. **Third-party cookies:** `pages.dev` and `workers.dev` are cross-site. `SameSite=None; Secure` is necessary for cross-site cookie requests but does not override browser third-party-cookie blocking.
+4. **CSRF:** Add Origin validation/CSRF protection to cookie-authenticated state-changing endpoints before production.
+5. **MongoDB transactions:** Couple creation and invitation acceptance require a replica-set deployment supporting transactions.
+6. **Test the full auth and transaction flows** in the deployed browser before putting real user data into the app.
+
+## Frontend request example
 
 ```ts
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const response = await fetch(`${API_URL}/api/auth/me`, {
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
   method: "GET",
   credentials: "include",
   headers: { "Content-Type": "application/json" }
 });
 ```
-
-For mutations, include a CSRF defense before production. At minimum, keep `SameSite=Lax` when frontend and API are same-site subdomains, validate `Origin` on state-changing requests, and consider a CSRF token pattern. If frontend and API are on unrelated sites and `SameSite=None` is required, CSRF protection is mandatory and `Secure=true` is required.
-
-## Cookie/domain deployment guidance
-
-For production on sibling subdomains such as `app.example.com` and `api.example.com`:
-- Set `FRONTEND_ORIGINS=https://app.example.com`
-- Set `COOKIE_SECURE=true`
-- Set `COOKIE_SAME_SITE=lax`
-- Usually leave `COOKIE_DOMAIN` blank so cookies are host-only for the API.
-- Use `credentials: "include"` in browser fetch calls.
-
-If using unrelated domains (for example `pages.dev` frontend and `onrender.com` API), browser third-party cookie restrictions may block cookies even with `SameSite=None; Secure`. A custom domain arrangement is strongly recommended.
-
-## Render deployment
-
-- Root directory: backend folder (if monorepo)
-- Build command: `npm install`
-- Start command: `npm start`
-- Add all `.env` values in Render environment settings.
-- Set `NODE_ENV=production`, `COOKIE_SECURE=true`, and the exact frontend origin.
-- Do not commit `.env`.
-
-## Before production
-
-1. Add CSRF protection / strict Origin checks for every cookie-authenticated state-changing route.
-2. Add password reset and email verification.
-3. Add account deletion, session/device management, and couple unlink/recovery flows.
-4. Add validation and authorization tests, especially invitation races and cross-couple access.
-5. Configure backups and monitor MongoDB storage.
-6. Store uploaded images in object storage, not Render's ephemeral filesystem.
-7. Add request logging with sensitive fields and cookies redacted.
-8. Review rate limits and account lockout strategy.
-9. Add a safe invitation delivery UX; never log invitation codes.
-10. Review cookie behavior in the actual deployed browser/domain combination.
-
-## Data model / privacy
-
-Each shared record belongs to a `coupleId`. Every query and mutation must enforce that scope on the server. Do not rely on frontend filtering for privacy.

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "../config/requestContext.js";
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
@@ -7,4 +8,4 @@ const userSchema = new mongoose.Schema({
   coupleId: { type: mongoose.Schema.Types.ObjectId, ref: "Couple", default: null, index: true }
 }, { timestamps: true });
 
-export default mongoose.model("User", userSchema);
+export const getUserModel = () => getModel("User", userSchema);

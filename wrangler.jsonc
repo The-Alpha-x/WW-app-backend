@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "witch-woofie-api",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "FRONTEND_ORIGINS": "http://localhost:3000,https://witch-woofie-app.pages.dev",
+    "COOKIE_DOMAIN": "",
+    "COOKIE_SAME_SITE": "none",
+    "COOKIE_SECURE": "true",
+    "ACCESS_TOKEN_TTL": "15m",
+    "REFRESH_TOKEN_DAYS": "30",
+    "INVITATION_TTL_HOURS": "48",
+    "BCRYPT_ROUNDS": "12"
+  }
+}

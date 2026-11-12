@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
-    "dev": "node --watch src/server.js",
+    "dev": "wrangler dev",
+    "dev:node": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js"
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "check": "node --check src/server.js && node --check src/worker.js && node --check src/app.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,7 +23,10 @@
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.19.0",
+    "mongoose": "^9.0.0",
     "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.44.0"
   }
 }

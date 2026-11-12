@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import User from "../models/User.js";
-import RefreshSession from "../models/RefreshSession.js";
+import { getUserModel } from "../models/User.js";
+import { getRefreshSessionModel } from "../models/RefreshSession.js";
 import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { clearAuthCookies, setAuthCookies } from "../utils/cookies.js";
@@ -19,6 +19,7 @@ const loginSchema = z.object({
 });
 
 async function issueSession(user, res) {
+  const RefreshSession = getRefreshSessionModel();
   const tokenId = newTokenId();
   const refreshToken = signRefreshToken(user._id, tokenId);
   const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_DAYS * 86400000);
@@ -27,6 +28,7 @@ async function issueSession(user, res) {
 }
 
 export const register = asyncHandler(async (req, res) => {
+  const User = getUserModel();
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid registration details", errors: parsed.error.flatten() });
 
@@ -41,6 +43,7 @@ export const register = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
+  const User = getUserModel();
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid login details" });
 
@@ -54,6 +57,8 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 export const refresh = asyncHandler(async (req, res) => {
+  const RefreshSession = getRefreshSessionModel();
+  const User = getUserModel();
   const token = req.cookies.ww_refresh;
   if (!token) return res.status(401).json({ message: "Refresh token required" });
 
@@ -87,6 +92,7 @@ export const refresh = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
+  const RefreshSession = getRefreshSessionModel();
   const token = req.cookies.ww_refresh;
   if (token) {
     try {

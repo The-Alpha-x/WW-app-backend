@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "../config/requestContext.js";
 
 const coupleSchema = new mongoose.Schema({
   name: { type: String, trim: true, maxlength: 80, default: "Our Little World" },
@@ -8,4 +9,4 @@ const coupleSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 coupleSchema.index({ memberIds: 1 });
-export default mongoose.model("Couple", coupleSchema);
+export const getCoupleModel = () => getModel("Couple", coupleSchema);

@@ -1,5 +1,6 @@
-import "dotenv/config";
 import { z } from "zod";
+
+const runtimeEnv = globalThis.__WITCH_WOOFIE_ENV__ ?? process.env;
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -17,10 +18,10 @@ const schema = z.object({
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12)
 });
 
-const parsed = schema.safeParse(process.env);
+const parsed = schema.safeParse(runtimeEnv);
 if (!parsed.success) {
   console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  throw new Error("Invalid environment configuration. Check Worker variables and secrets.");
 }
 
 export const env = {

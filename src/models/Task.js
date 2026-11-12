@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "../config/requestContext.js";
 
 const taskSchema = new mongoose.Schema({
   coupleId: { type: mongoose.Schema.Types.ObjectId, ref: "Couple", required: true, index: true },
@@ -11,5 +12,5 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, enum: ["low", "medium", "high"], default: "medium" }
 }, { timestamps: true });
 
-taskSchema.index({ coupleId:  1, dueDate: 1 });
-export default mongoose.model("Task", taskSchema);
+taskSchema.index({ coupleId: 1, dueDate: 1 });
+export const getTaskModel = () => getModel("Task", taskSchema);

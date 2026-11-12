@@ -1,17 +1,19 @@
 import { z } from "zod";
-import mongoose from "mongoose";
-import Couple from "../models/Couple.js";
-import User from "../models/User.js";
+import { getCoupleModel } from "../models/Couple.js";
+import { getUserModel } from "../models/User.js";
+import { getDatabaseConnection } from "../config/requestContext.js";
 import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { randomCode, sha256 } from "../utils/tokens.js";
 
 export const createCouple = asyncHandler(async (req, res) => {
+  const Couple = getCoupleModel();
+  const User = getUserModel();
   const parsed = z.object({ name: z.string().trim().min(1).max(80).optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid couple name" });
   if (req.user.coupleId) return res.status(409).json({ message: "You already belong to a couple" });
 
-  const session = await mongoose.startSession();
+  const session = await getDatabaseConnection().startSession();
   let couple;
   try {
     await session.withTransaction(async () => {
@@ -33,6 +35,7 @@ export const createCouple = asyncHandler(async (req, res) => {
 });
 
 export const createInvitation = asyncHandler(async (req, res) => {
+  const Couple = getCoupleModel();
   const couple = await Couple.findById(req.coupleId).select("+invitationHash");
   if (!couple) return res.status(404).json({ message: "Couple not found" });
   if (couple.memberIds.length >= 2) return res.status(409).json({ message: "Your couple already has two members" });
@@ -50,12 +53,14 @@ export const createInvitation = asyncHandler(async (req, res) => {
 });
 
 export const joinCouple = asyncHandler(async (req, res) => {
+  const Couple = getCoupleModel();
+  const User = getUserModel();
   const parsed = z.object({ invitationCode: z.string().min(20).max(100) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "A valid invitation code is required" });
   if (req.user.coupleId) return res.status(409).json({ message: "You already belong to a couple" });
 
   const hash = sha256(parsed.data.invitationCode);
-  const session = await mongoose.startSession();
+  const session = await getDatabaseConnection().startSession();
   let joinedCouple;
   try {
     await session.withTransaction(async () => {
@@ -97,6 +102,7 @@ export const joinCouple = asyncHandler(async (req, res) => {
 });
 
 export const getMyCouple = asyncHandler(async (req, res) => {
+  const Couple = getCoupleModel();
   const couple = await Couple.findById(req.coupleId).populate("memberIds", "displayName email");
   if (!couple) return res.status(404).json({ message: "Couple not found" });
   res.json({ couple: { id: couple._id, name: couple.name, members: couple.memberIds, createdAt: couple.createdAt } });

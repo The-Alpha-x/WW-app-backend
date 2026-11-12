@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { z } from "zod";
-import Task from "../models/Task.js";
+import { getTaskModel } from "../models/Task.js";
+import { getCoupleModel } from "../models/Couple.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const taskInput = z.object({
@@ -12,17 +13,18 @@ const taskInput = z.object({
 });
 
 export const listTasks = asyncHandler(async (req, res) => {
+  const Task = getTaskModel();
   const tasks = await Task.find({ coupleId: req.coupleId }).sort({ dueDate: 1, createdAt: -1 });
   res.json({ tasks });
 });
 
 export const createTask = asyncHandler(async (req, res) => {
+  const Task = getTaskModel();
   const parsed = taskInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid task", errors: parsed.error.flatten() });
 
   if (parsed.data.assignedTo) {
-    const Couple = (await import("../models/Couple.js")).default;
-    const couple = await Couple.findById(req.coupleId);
+    const couple = await getCoupleModel().findById(req.coupleId);
     if (!couple?.memberIds.some(id => id.equals(parsed.data.assignedTo))) {
       return res.status(400).json({ message: "Assigned user must belong to your couple" });
     }
@@ -38,6 +40,7 @@ export const createTask = asyncHandler(async (req, res) => {
 });
 
 export const updateTask = asyncHandler(async (req, res) => {
+  const Task = getTaskModel();
   if (!mongoose.isValidObjectId(req.params.taskId)) return res.status(400).json({ message: "Invalid task ID" });
   const parsed = taskInput.partial().extend({
     status: z.enum(["pending", "in_progress", "completed"]).optional()
@@ -47,8 +50,7 @@ export const updateTask = asyncHandler(async (req, res) => {
   const updates = { ...parsed.data };
   if (typeof updates.dueDate === "string") updates.dueDate = new Date(updates.dueDate);
   if (updates.assignedTo) {
-    const Couple = (await import("../models/Couple.js")).default;
-    const couple = await Couple.findById(req.coupleId);
+    const couple = await getCoupleModel().findById(req.coupleId);
     if (!couple?.memberIds.some(id => id.equals(updates.assignedTo))) {
       return res.status(400).json({ message: "Assigned user must belong to your couple" });
     }
@@ -63,6 +65,7 @@ export const updateTask = asyncHandler(async (req, res) => {
 });
 
 export const deleteTask = asyncHandler(async (req, res) => {
+  const Task = getTaskModel();
   if (!mongoose.isValidObjectId(req.params.taskId)) return res.status(400).json({ message: "Invalid task ID" });
   const task = await Task.findOneAndDelete({ _id: req.params.taskId, coupleId: req.coupleId });
   if (!task) return res.status(404).json({ message: "Task not found" });

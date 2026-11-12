@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes.js";
 import coupleRoutes from "./routes/coupleRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import { withDatabase } from "./config/db.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -31,6 +32,7 @@ const authLimiter = rateLimit({
 });
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.use(withDatabase);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/couples", coupleRoutes);
 app.use("/api/tasks", taskRoutes);
