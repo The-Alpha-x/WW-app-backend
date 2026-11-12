@@ -1,8 +1,6 @@
-# Witch Woofie API starter
+# Witch Woofie API
 
-A starter Express API for a private two-person shared app. Includes MongoDB/Mongoose, email/password auth, short-lived JWT access tokens, rotating refresh sessions, HttpOnly cookies, one-time couple invitations, and couple-scoped task CRUD.
-
-> This is a security-conscious starter, not a security audit or a finished production system. Review and test it before storing real personal data.
+An Express API for a private two-person shared app. Includes MongoDB/Mongoose, email/password auth, short-lived JWT access tokens, rotating refresh sessions, HttpOnly cookies, one-time couple invitations, and couple-scoped task CRUD.
 
 ## Requirements
 
@@ -14,24 +12,10 @@ A starter Express API for a private two-person shared app. Includes MongoDB/Mong
 
 ```bash
 npm install
-cp .env.example .env
-# Fill in .env
 npm run dev
 ```
 
 API defaults to `http://localhost:4000`.
-
-Generate secrets with:
-
-```bash
-openssl rand -base64 48
-```
-
-Use different values for `ACCESS_TOKEN_SECRET` and `REFRESH_TOKEN_SECRET`.
-
-## Important MongoDB note
-
-Couple creation and invitation acceptance use MongoDB transactions. Use an Atlas deployment that supports transactions (Atlas replica-set deployments do). If you test against a standalone local MongoDB server, transactions may fail; use a replica set or Atlas.
 
 ## API endpoints
 
@@ -49,7 +33,7 @@ All JSON request bodies use `Content-Type: application/json`. Browser requests m
 
 All require authentication.
 
-- `POST /api/couples` — create your couple: `{ "name": "Our Little World" }`
+- `POST /api/couples` — create my couple: `{ "name": "Our Little World" }`
 - `POST /api/couples/invitation` — create one-time invitation; returns a private invitation code. Only available while the couple has one member.
 - `POST /api/couples/join` — second account joins: `{ "invitationCode": "..." }`
 - `GET /api/couples/me` — current couple and member profiles.
