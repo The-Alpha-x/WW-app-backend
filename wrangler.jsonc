@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "witch-woofie-api",
+  "name": "witch-woofie-backend",
   "main": "src/worker.js",
   "compatibility_date": "2026-11-12",
   "compatibility_flags": ["nodejs_compat"],
